@@ -7,7 +7,7 @@ Sample_Name <- "HJA_2016_HJW_2025"
 ### Load in data ###
 
 edata <- read.csv(
-  "Merged_Output/HJA_2016_HJW_2025-Processed_Data_HJW_replicates_merged.csv",
+  "Merged_Output/HJA_2016_HJW_2025-Processed_Data_Final.csv",
   row.names = 1,
   check.names = FALSE
 )
@@ -16,12 +16,24 @@ edata$Mass <- rownames(edata)
 
 
 emeta <- read.csv(
-  "Merged_Output/HJA_2016_HJW_2025-Processed_Mol.csv",
+  "Merged_Output/HJA_2016_HJW_2025-Processed_Mol_Final.csv",
   row.names = 1,
   check.names = FALSE
 )
 
 emeta$Mass <- rownames(emeta)
+
+emeta$El_comp <- paste0(
+  ifelse(emeta$C > 0, "C", ""),
+  ifelse(emeta$H > 0, "H", ""),
+  ifelse(emeta$O > 0, "O", ""),
+  ifelse(emeta$N > 0, "N", ""),
+  ifelse(emeta$S > 0, "S", ""),
+  ifelse(emeta$P > 0, "P", "")
+)
+
+emeta$kmass <- emeta$kmass.CH2
+emeta$kdefect <- emeta$kdefect.CH2
 
 # Check that Data and Mol rows still match
 if (!identical(edata$Mass, emeta$Mass)) {
@@ -48,7 +60,7 @@ if (!identical(edata$Mass, emeta$Mass)) {
     temp = emeta[which(row.names(emeta) %in% row.names(temp)),]
     
     for(j in 1:length(uniq.comp)){
-      classes[i,j] = length(which(temp$bs1 %in% uniq.comp[j]))
+      classes[i,j] = length(which(temp$bs1_class %in% uniq.comp[j]))
     }
     
     name.temp = c(name.temp, colnames(edata)[i])
