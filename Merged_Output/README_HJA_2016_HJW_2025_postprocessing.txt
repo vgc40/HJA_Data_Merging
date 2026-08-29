@@ -37,7 +37,7 @@ HJW 2025 TECHNICAL REPLICATE MERGING
 Technical replicate peaks were retained when detected in at least 2 replicate files.
 For samples with 3 replicates this is a 2-of-3 rule.
 For samples with 2 replicates this is a 2-of-2 rule.
-Final intensity is the mean of positive detected replicate intensities only.
+replicate intensities only.
 Samples with only 2 technical replicates: HJW_34, HJW_43
 HJW Parent_ID values were mapped to Site_ID using WHONDRS_HJW_Field_Metadata.csv.
 Final naming is HJA_<Site_ID>_2025.

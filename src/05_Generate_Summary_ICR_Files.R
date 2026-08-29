@@ -73,7 +73,8 @@ if (!identical(edata$Mass, emeta$Mass)) {
   
   #### Elemental Composition Summary
   uniq.elem = unique(emeta$El_comp)
-  uniq.elem = uniq.elem[-which(uniq.elem %in% "")]
+  #uniq.elem = uniq.elem[-which(uniq.elem %in% "")]
+  uniq.elem = uniq.elem[!is.na(uniq.elem) & uniq.elem != ""]
   
   # Looping through each sample to obtain some summary categoreies
   elem.comp = matrix(nrow = ncol(edata), ncol = length(uniq.elem)) # Creating empty matrix to store stats

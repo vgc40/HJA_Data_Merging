@@ -19,7 +19,6 @@
 #   7. Merge HJW technical replicates:
 #        - 3 replicates -> retain if detected in >=2
 #        - 2 replicates -> retain only if detected in both
-#        - final intensity = mean of positive detected values
 #   8. Leave HJA 2016 intensities unchanged
 #   9. Final naming:
 #        HJA 2016 -> HJA_<site>_2016
@@ -847,7 +846,11 @@ final_data <- processed_data_clean %>%
       hja_columns
     )
   )
-
+final_data[hja_columns] <- ifelse(
+  final_data[hja_columns] > 0,
+  1,
+  0
+)
 
 # ============================================================
 # Rename HJA 2016 samples
@@ -946,46 +949,17 @@ for (
   )
   
   
-  # ----------------------------------------------------------
-  # Mean positive intensity only
-  # ----------------------------------------------------------
-  
-  positive_mean <- apply(
-    replicate_matrix,
-    1,
-    function(x) {
-      
-      positive_values <- x[
-        !is.na(x) &
-          x > 0
-      ]
-      
-      
-      if (length(positive_values) == 0) {
-        
-        return(
-          0
-        )
-      }
-      
-      
-      mean(
-        positive_values
-      )
-    }
-  )
-  
-  
+ 
   # ----------------------------------------------------------
   # Retention rule
   #
-  # 3 reps -> >=2 positive
-  # 2 reps -> both positive
+  # 3 reps -> >=2 
+  # 2 reps -> both 
   # ----------------------------------------------------------
   
-  merged_intensity <- ifelse(
+  merged_presence <- ifelse(
     presence_count >= 2,
-    positive_mean,
+    1,
     0
   )
   
@@ -999,8 +973,7 @@ for (
     )
   
   
-  final_data[[final_column_name]] <- merged_intensity
-  
+  final_data[[final_column_name]] <- merged_presence  
   
   cat(
     current_sample,
@@ -1010,7 +983,7 @@ for (
     n_reps,
     "| retained peaks:",
     sum(
-      merged_intensity > 0
+      merged_presence > 0
     ),
     "\n"
   )
@@ -1321,7 +1294,6 @@ readme_text <- paste0(
   "in at least 2 replicate files.\n",
   "For samples with 3 replicates this is a 2-of-3 rule.\n",
   "For samples with 2 replicates this is a 2-of-2 rule.\n",
-  "Final intensity is the mean of positive detected ",
   "replicate intensities only.\n",
   "Samples with only 2 technical replicates: ",
   two_rep_text,
