@@ -2,18 +2,31 @@ require(easycsv)
 require(tidyverse)
 
 # User Input
-Sample_Name = "YDE21_12T_OG" # Sample name for output; user will need to change to "YDE21_7T_OG" if using 7T data
-
+Sample_Name <- "HJA_2016_HJW_2025"
 
 ### Load in data ###
-setwd(easycsv::choose_dir())
 
-edata = read.csv(list.files(pattern = "*Data.csv"), row.names = 1, check.names = F)
-edata$Mass = rownames(edata) # doing it like this to keep as much of the decimals as possible
+edata <- read.csv(
+  "Merged_Output/HJA_2016_HJW_2025-Processed_Data_HJW_replicates_merged.csv",
+  row.names = 1,
+  check.names = FALSE
+)
 
-emeta = read.csv(list.files(pattern = "*Mol.csv"), row.names = 1)
-emeta$Mass = rownames(emeta)
+edata$Mass <- rownames(edata)
 
+
+emeta <- read.csv(
+  "Merged_Output/HJA_2016_HJW_2025-Processed_Mol.csv",
+  row.names = 1,
+  check.names = FALSE
+)
+
+emeta$Mass <- rownames(emeta)
+
+# Check that Data and Mol rows still match
+if (!identical(edata$Mass, emeta$Mass)) {
+  stop("Data and Mol calibrated masses do not match.")
+}
 ############### Summary generation ############### 
   # Storing row names
   row.names(edata) = edata$Mass; edata = edata[,-which(colnames(edata) %in% "Mass")]

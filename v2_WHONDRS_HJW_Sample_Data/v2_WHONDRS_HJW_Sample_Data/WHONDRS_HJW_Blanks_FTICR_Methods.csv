@@ -1,0 +1,17 @@
+#Columns,5
+#Header_Rows,12
+Field_Name,Sample_Name,IGSN,Material,FTICR-MS,Methods_Deviation
+Unit,N/A,N/A,N/A,N/A,N/A
+Unit_Basis,N/A,N/A,N/A,N/A,N/A
+MethodID_Analysis,N/A,N/A,N/A,ICR_T_AN_023,N/A
+MethodID_Inspection,N/A,N/A,N/A,ICR_T_IN_023,N/A
+MethodID_Storage,N/A,N/A,N/A,ICR_T_ST_023,N/A
+MethodID_Preservation,N/A,N/A,N/A,ICR_T_PRES_023,N/A
+MethodID_Preparation,N/A,N/A,N/A,ICR_T_PREP_023,N/A
+MethodID_DataProcessing,N/A,N/A,N/A,ICR_T_DP_023,N/A
+Analysis_DetectionLimit,-9999,-9999,-9999,-9999,N/A
+Analysis_Precision,-9999,-9999,-9999,-9999,N/A
+Data_Status,N/A,N/A,N/A,L0_L1_L2_ICR,N/A
+#Start_Data,HJW_Blk-1,N/A,Liquid>aqueous,See_FTICR_folder_for_data,ICR_BLANK_006
+N/A,HJW_Blk-2,N/A,Liquid>aqueous,See_FTICR_folder_for_data,ICR_BLANK_006; ICR_RERUN_001
+#End_Data,,,,,

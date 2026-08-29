@@ -1,0 +1,78 @@
+Column_or_Row_Name,Unit,Definition,Data_Type,Term_Type,Missing_Value_Code,Reported_Precision
+13C,N/A,Number of 13-Carbon atoms assigned to a peak.,numeric,column_header,-9999,1
+15N,N/A,Number of 15-Nitrogen atoms assigned to a peak.,text,column_header,N/A,1
+18O,N/A,Number of 18-Oxygen atoms assigned to a peak.,numeric,column_header,-9999,1
+33S,N/A,Number of 33-Sulfur atoms assigned to a peak.,numeric,column_header,-9999,1
+34S,N/A,Number of 34-Sulfur atoms assigned to a peak.,numeric,column_header,-9999,1
+AI,N/A,"Aromaticity index calculated as per Koch and Dittmar (2006, 2016).",numeric,column_header,-9999,0.00000001
+AI_Mod,N/A,"Modified aromaticity index calculated as per Koch and Dittmar (2006, 2016).",numeric,column_header,-9999,0.000000001
+bs1_class,N/A,"Boundaries used to assign compound classes to molecular formula. Boundary sets 1 are Van Krevelen-based (Kim et al., 2003).",text,column_header,N/A,-9999
+bs2_class,N/A,"Boundaries used to assign compound classes to molecular formula. Boundary sets 2 are Van Krevelen-based (Bailey et al., 2017).",text,column_header,N/A,-9999
+bs3_class,N/A,"Boundaries used to assign compound classes to molecular formula. Boundary sets  3 further integrate stoichiometry to assign modified compound classes (Rivas-Urbach et al., 2018).",text,column_header,N/A,-9999
+C,N/A,Carbon atoms in the analyzed molecule. Identified by an algorithm in Kujawinski and Behn (2006) and modified as described in Tfaily et al. (2017).,numeric,column_header,-9999,1
+Calculated_Mass,mass to charge ratio,Calculated ionic mass for the assigned molecular formula. The units of mass to charge ratio is commonly denoted as m/z.,numeric,column_header,-9999,0.0001
+Calibrated_Mass,mass to charge ratio,Ionic mass of a peak after calibration in CoreMS. The units of mass to charge ratio is commonly denoted as m/z.,numeric,column_header,-9999,0.00001
+Calibration_Order,N/A,"Order of the polynomial function used during calibration in CoreMS (1 = linear, 2 = quadratic).",numeric,column_header,-9999,1
+Calibration_Points,N/A,Number of calibration points used during calibration in CoreMS.,numeric,column_header,-9999,1
+Calibration_RMSE,N/A,Root mean square error (RMSE) of the calibration in CoreMS.,numeric,column_header,-9999,0.00000001
+Calibration_Threshold,N/A,Threshold of acceptable number of calibration points set for the automated calibration function in our CoreMS pipeline.,numeric,column_header,-9999,0.1
+Column_or_Row_Name,N/A,Column or row headers from each tabular file (csv or tsv) in the dataset.,text,column_header,N/A,-9999
+Column_or_Row_Name_Position,N/A,"The location of the column or row that contains the header names (i.e., column name or row name). The count used to identify the location assumes the numbering begins at 1 (rather than 0) and excludes columns or rows that begin with ""#"". Most data in this data package is oriented in columns, so this field indicates the tabular location of the row that holds the column names (e.g., If row 1 has the column headers, row 2 has the units, and row 3 has the data values, then this value would be 1 - to indicate the location of the column header row).",numeric,column_header,-9999,1
+Confidence_Score,N/A,"Value (0-1) given by CoreMS to the assigned molecular formula with 1 being the highest confidence (e.g., approximate likelihood of being accurate).",numeric,column_header,-9999,0.0000001
+Data_Type,N/A,Type of data (numeric; text; date; time; datetime).,text,column_header,N/A,-9999
+DBE,N/A,"Double bond equivalent or degree of unsaturation calculated as per Koch and Dittmar (2006, 2016).",numeric,column_header,-9999,1
+DBE_1,N/A,"Double bond equivalent or degree of unsaturation calculated as per Koch and Dittmar (2006, 2016).",numeric,column_header,-9999,1
+DBE_AI,N/A,"The minimum number of C-C double bonds plus rings in a common molecular structure containing heteroatoms. Calculated as per Koch and Dittmar (2006, 2016).",numeric,column_header,-9999,1
+DBE_O,N/A,"Double bond equivalent minus Oxygen calculated as per Koch and Dittmar (2006, 2016).",numeric,column_header,-9999,1
+Definition,N/A,Description of the information in a given column or row in the dataset.,text,column_header,N/A,-9999
+delGcox0PerCmol,kJ per C mol,Gibbs free energy of the carbon oxidation half reaction under standard conditions (pH = 0). Calculated as  per LaRowe and Van Cappellen (2011).,numeric,column_header,-9999,0.0000001
+delGcoxPerCmol,kJ per C mol,Gibbs free energy of the carbon oxidation half reaction at pH 7. Calculated as per Song et al. (2020).,numeric,column_header,-9999,0.00001
+delGd,kJ per Compound mol,Gibbs free energy of the carbon oxidation half reaction per compound mol at pH 7. Calculated as per Song et al. (2020).,numeric,column_header,-9999,0.0001
+delGd0,kJ per Compound mol,Gibbs free energy of the carbon oxidation half reaction per compound mol at pH 0. Calculated as per Song et al. (2020).,numeric,column_header,-9999,0.1
+Error_ppm,parts per million,Parts per million error calculated as [expected molecular mass - measured molecular mass]/expected molecular mass * 1e6).,numeric,column_header,-9999,0.000000001
+Error_Score,N/A,Value (0-1) given by CoreMS to the individual peaks that determines whether the error was acceptable with 1 being acceptable.,numeric,column_header,-9999,0.0000001
+File_Description,N/A,A brief description of the files in the data package.,text,column_header,N/A,-9999
+File_Name,N/A,Name of files in the data package.,text,column_header,N/A,-9999
+File_Path,N/A,File path within the data package.,text,column_header,N/A,-9999
+GFE,kJ per C mol,Gibbs free energy of the carbon oxidation half reaction under standard conditions. Calculated as per LaRowe and Van Cappellen (2011).,numeric,column_header,-9999,0.0000001
+H,N/A,Hydrogen atoms in the analyzed molecule. Identified by an algorithm in Kujawinski and Behn (2006) and modified as described in Tfaily et al. (2017).,numeric,column_header,-9999,1
+Header_Rows,N/A,"The number of rows or the number of columns that occur before the start of tabular data. This count assumes the numbering begins at 1 (rather than 0), excludes columns or rows that begin with ""#"", and includes the column or row that the header names are on. For example, if the file has columns with variable names but does not have any other metadata header rows, then this value is 1. Most data in this data package is oriented in columns, so this field indicates the number of rows before the start of the data (e.g., If row 1 has the column headers, row 2 has the units, and row 3 has the data values, then this value would be 2 - to indicate the count of the rows prior to the data values).",numeric,column_header,-9999,1
+Heteroatom_Class,N/A,"The type of heteroatoms (e.g., oxygen, nitrogen, sulfur, phosphorous) in a formula.",text,column_header,N/A,-9999
+HJA_*,N/A,Sample name with rows representing peak intensities reflected as presence absence.,numeric,column_header,-9999,1
+HtoC_ratio,N/A,Hydrogen to carbon ratio.,numeric,column_header,-9999,0.0000001
+Index,N/A,Index of peak.,numeric,column_header,-9999,1
+Ion_Charge,N/A,Charge of the ion. This value is -1 for all  samples because we run our samples using electrospray ionization in the negative mode.,numeric,column_header,-9999,1
+Ion_Type,N/A,"Indicates whether a formula was assigned from a given ionization category. This is always ""de-protonated"" because we run our samples using electrospray ionization in the negative mode.",text,column_header,N/A,-9999
+Is_Isotopologue,N/A,Indicates whether a formula contains different isotopes of the same atom with 0 indicating it is not an isotopologue and 1 indicating that it is an isotopologue.,numeric,column_header,-9999,1
+Isotopologue_Similarity,N/A,Value (0-1) given by CoreMS to evaluate whether an isotopologue matches the mono-isotopic version of the formula with 1 being the closest match.,numeric,column_header,-9999,0.0000001
+Join_By_Field,N/A,Field in the specified file that can be used to join with other files. ,text,column_header,N/A,-9999
+kdefect.CH2,N/A,"Kendrick Defect = Nominal Kendrick Mass - Kendrick Mass; Hughey et al., 2001.",numeric,column_header,-9999,0.000000001
+kmass.CH2,N/A,"(IUPACmass)(14/14.01565); where IUPAC mass is based on the 12C atomic mass as exactly 12 Da. Hughey et al., 2001.",numeric,column_header,-9999,0.0001
+lamO2,N/A,Thermodynamic efficiency (defined by lambda) at pH 7. Calculated as per Song et al. (2020).,numeric,column_header,-9999,0.000000001
+lamO20,N/A,Thermodynamic efficiency (defined by lambda) at standard state (pH = 0). Calculated as per Song et al. (2020).,numeric,column_header,-9999,0.000000001
+Latitude,decimal degrees WGS84,Geographic location (latitude).,numeric,column_header,-9999,0.00001
+Longitude,decimal degrees WGS84,Geographic location (longitude).,numeric,column_header,-9999,0.0001
+Mass,mass to charge ratio,Measured ionic mass. The units of mass to charge ration is commonly denoted as m/z.,numeric,column_header,-9999,0.00001
+Missing_Value_Code,N/A,"Cells with missing data are represented with a missing value code rather than an empty cell. This column describes which missing value codes were used. In most cases, the missing value code for numeric data is ""-9999"" and for character data is ""N/A"". ",text,column_header,N/A,-9999
+Molecular_Formula,N/A,"Molecular Formula. This column is a direct output of CoreMS. ""MolForm"" is the same column.",text,column_header,N/A,-9999
+MolForm,N/A,"Molecular Formula. Same as ""Molecular_Formula"" column but shortened.",text,column_header,N/A,-9999
+Mono_Isotopic_Index,N/A,Reference to the peak index of the mono-isotopic version of an isotopologue.,numeric,column_header,-9999,1
+N,N/A,Nitrogen atoms in the analyzed molecule. Identified by an algorithm in Kujawinski and Behn (2006) and modified as described in Tfaily et al. (2017).,numeric,column_header,-9999,1
+NOSC,N/A,Nominal Oxidation State of Carbon calculated as per LaRowe and Van Cappellen (2011).,numeric,column_header,-9999,0.00000001
+NtoC_ratio,N/A,Nitrogen to Carbon ratio.,numeric,column_header,-9999,0.00000001
+NtoP_ratio,N/A,Nitrogen to Phosphorous ratio.,numeric,column_header,-9999,1
+O,N/A,Oxygen atoms in the analyzed molecule. Identified by an algorithm in Kujawinski and Behn (2006) and modified as described in Tfaily et al. (2017).,numeric,column_header,-9999,1
+OtoC_ratio,N/A,Oxygen to carbon ratio.,numeric,column_header,-9999,0.00000001
+P,N/A,Phosphorous atoms in the analyzed molecule. Identified by an algorithm in Kujawinski and Behn (2006) and modified as described in Tfaily et al. (2017).,numeric,column_header,-9999,1
+Peak_Area,N/A,Area underneath an assigned peak. We do not calculate this so it is -9999 (missing value used for numeric columns).,numeric,column_header,N/A,-9999
+Peak_Height,N/A,"Equivalent to peak intensity (e.g., how big is a peak).",numeric,column_header,-9999,1
+PtoC_ratio,N/A,Phosphorus to Carbon ratio.,numeric,column_header,-9999,0.00000001
+Reported_Precision,N/A,"Precision of the reported data values. For example, if the values are rounded to 1 decimal place, the precision would be 0.1. Similarly, if a value like 5.24 is reported (rounded to 2 decimal places), its precision would be 0.01.",numeric,column_header,N/A,-9999
+Resolving_Power,N/A,Value which describes the instruments capability to distinguish a peak from a different peak given similar mass-to-charge ratios.,numeric,column_header,-9999,0.1
+S,N/A,Sulphur atoms in the analyzed molecule. Identified by an algorithm in Kujawinski and Behn (2006) and modified as described in Tfaily et al. (2017).,numeric,column_header,-9999,1
+S_N,N/A,Signal-to-noise ratio.,numeric,column_header,-9999,0.01
+Sample_Name,N/A,"Name of sample. Individual samples follow the format of HJA_[Site_ID]-[ion accumulation time]. The ""p"" in the IAT indicates the decimal point (i.e. p01 indicates an IAT of 0.1 and 1p2 indicates an IAT of 1.2). ",text,column_header,N/A,-9999
+Site_ID,N/A,Site ID.,text,column_header,N/A,-9999
+Standard,N/A,ESS-DIVE Reporting Format (https://ess-dive.lbl.gov/data-reporting-formats/) or other standard applied to the data file.,text,column_header,N/A,-9999
+Term_Type,N/A,"Indicates how the term is used in the data package (e.g., a column_header, row_header, data_flag, or other variable).",text,column_header,N/A,-9999
+Unit,N/A,Unit of measurement that applies to a given column or row in the data package.,text,column_header,N/A,-9999
