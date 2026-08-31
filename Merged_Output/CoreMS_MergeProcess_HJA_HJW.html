@@ -399,10 +399,27 @@ output_dir = &quot;C:/Users/gara009/OneDrive - PNNL/Documents/GitHub/HJA_Data_Me
 
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = path_to_dir)
-require(tidyverse)
-require(ftmsRanalysis) # https://github.com/EMSL-Computing/ftmsRanalysis
-
-# catching internet activity
+require(tidyverse)</code></pre>
+<pre><code>## Loading required package: tidyverse</code></pre>
+<pre><code>## -- Attaching core tidyverse packages ------------------------ tidyverse 2.0.0 --
+## v dplyr     1.1.4     v readr     2.1.6
+## v forcats   1.0.0     v stringr   1.6.0
+## v ggplot2   4.0.3     v tibble    3.2.1
+## v lubridate 1.9.4     v tidyr     1.3.2
+## v purrr     1.0.4     
+## -- Conflicts ------------------------------------------ tidyverse_conflicts() --
+## x dplyr::filter() masks stats::filter()
+## x dplyr::lag()    masks stats::lag()
+## i Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre class="r"><code>require(ftmsRanalysis) # https://github.com/EMSL-Computing/ftmsRanalysis</code></pre>
+<pre><code>## Loading required package: ftmsRanalysis
+## 
+## Attaching package: &#39;ftmsRanalysis&#39;
+## 
+## The following object is masked from &#39;package:stats&#39;:
+## 
+##     heatmap</code></pre>
+<pre class="r"><code># catching internet activity
 is_online &lt;- function(site=&quot;https://www.google.com&quot;) {
   tryCatch({
     readLines(site,n=1)

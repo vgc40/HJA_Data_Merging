@@ -4,10 +4,61 @@ require(tidyverse)
 # User Input
 Sample_Name <- "HJA_2016_HJW_2025"
 
+results_dir <- "Results"
+
+if (!dir.exists(results_dir)) {
+  dir.create(results_dir)
+}
+
+final_data_path <- file.path(
+  "Merged_Output",
+  "HJA_2016_HJW_2025-Processed_Data_Final.csv"
+)
+
+final_mol_path <- file.path(
+  "Merged_Output",
+  "HJA_2016_HJW_2025-Processed_Mol_Final.csv"
+)
+
+results_data_path <- file.path(
+  results_dir,
+  "HJA_2016_HJW_2025-Processed_Data_Final.csv"
+)
+
+results_mol_path <- file.path(
+  results_dir,
+  "HJA_2016_HJW_2025-Processed_Mol_Final.csv"
+)
+
+compound_summary_path <- file.path(
+  results_dir,
+  paste0(Sample_Name, "_Compound_Class_Summary.csv")
+)
+
+elemental_summary_path <- file.path(
+  results_dir,
+  paste0(Sample_Name, "_Elemental_Composition_Summary.csv")
+)
+
+molecular_summary_path <- file.path(
+  results_dir,
+  paste0(Sample_Name, "_MolInfo_Summary.csv")
+)
+
+copy_success <- file.copy(
+  from = c(final_data_path, final_mol_path),
+  to = c(results_data_path, results_mol_path),
+  overwrite = TRUE
+)
+
+if (any(!copy_success)) {
+  stop("Could not copy the final Data and Mol files into Results.")
+}
+
 ### Load in data ###
 
 edata <- read.csv(
-  "Merged_Output/HJA_2016_HJW_2025-Processed_Data_Final.csv",
+  final_data_path,
   row.names = 1,
   check.names = FALSE
 )
@@ -16,7 +67,7 @@ edata$Mass <- rownames(edata)
 
 
 emeta <- read.csv(
-  "Merged_Output/HJA_2016_HJW_2025-Processed_Mol_Final.csv",
+  final_mol_path,
   row.names = 1,
   check.names = FALSE
 )
@@ -68,7 +119,7 @@ if (!identical(edata$Mass, emeta$Mass)) {
   
   classes = as.data.frame(classes)
   
-  write.csv(classes, paste(Sample_Name, "_Compound_Class_Summary.csv", sep = ""), quote = F)
+  write.csv(classes, compound_summary_path, quote = F)
   
   
   #### Elemental Composition Summary
@@ -96,7 +147,7 @@ if (!identical(edata$Mass, emeta$Mass)) {
   
   elem.comp = as.data.frame(elem.comp)
   
-  write.csv(elem.comp, paste(Sample_Name, "_Elemental_Composition_Summary.csv", sep = ""), quote = F)
+  write.csv(elem.comp, elemental_summary_path, quote = F)
   
   
   #### Characteristics summary
@@ -217,6 +268,6 @@ if (!identical(edata$Mass, emeta$Mass)) {
     
   } # I'm not sure how to do this without the for-loop, but I'm simply just finding the mean/median for peak stats
   
-  write.csv(characteristics, paste(Sample_Name, "_MolInfo_Summary.csv", sep = ""), quote = F)
+  write.csv(characteristics, molecular_summary_path, quote = F)
   
 

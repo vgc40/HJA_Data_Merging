@@ -23,6 +23,26 @@
 library(here)
 library(rmarkdown)
 
+if (!rmarkdown::pandoc_available()) {
+  pandoc_candidates <- c(
+    Sys.getenv("RSTUDIO_PANDOC"),
+    file.path(
+      Sys.getenv("ProgramFiles"),
+      "RStudio", "resources", "app", "bin", "quarto", "bin", "tools"
+    )
+  )
+
+  pandoc_candidates <- pandoc_candidates[
+    file.exists(file.path(pandoc_candidates, "pandoc.exe"))
+  ]
+
+  if (length(pandoc_candidates) == 0) {
+    stop("Pandoc was not found. Install Pandoc or run this script from RStudio.")
+  }
+
+  Sys.setenv(RSTUDIO_PANDOC = pandoc_candidates[[1]])
+}
+
 
 # ------------------------------------------------------------
 # Paths

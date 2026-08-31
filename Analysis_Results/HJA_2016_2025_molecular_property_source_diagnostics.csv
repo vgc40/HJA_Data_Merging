@@ -1,0 +1,7 @@
+property,source_column,plausible_min,plausible_max,minimum_existing_mean,maximum_existing_mean,nonfinite_mean_count,outside_plausible_range_count,recalculation_required,decision
+AI_Mod,AI_Mod.mean,-1,1,0.145985893668259,0.37600542665698,0,0,FALSE,Existing summary passed range check
+DBE,DBE.mean,0,100,5.38197424892704,13.0909090909091,0,0,FALSE,Existing summary passed range check
+H:C ratio,HtoC.mean,0,3,1.12439503109276,1.56539718662536,0,0,FALSE,Existing summary passed range check
+NOSC,NOSC.mean,-4,4,-0.772317401297653,-0.146699844783022,0,0,FALSE,Existing summary passed range check
+O:C ratio,OtoC.mean,0,2,0.267662953982171,0.468430698750224,0,0,FALSE,Existing summary passed range check
+lambdaO2,lambdaO2_7.mean,-1,1,0.0385835825717853,0.0533751067025409,0,0,FALSE,Existing summary passed range check

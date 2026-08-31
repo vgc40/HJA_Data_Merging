@@ -1,0 +1,945 @@
+---
+title: "HJA FTICR-MS 2016 vs 2025"
+author: "Reproducible paired-site analysis"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  out.width = "100%"
+)
+
+required_packages <- c(
+  "dplyr", "tidyr", "ggplot2", "readr", "stringr", "purrr",
+  "tibble", "forcats", "vegan", "permute", "knitr"
+)
+missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing_packages) > 0) {
+  stop("Install the required R packages before knitting: ", paste(missing_packages, collapse = ", "))
+}
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(readr)
+library(stringr)
+library(purrr)
+library(tibble)
+library(forcats)
+library(vegan)
+library(permute)
+
+set.seed(20162025)
+
+dir.create("Analysis_Results", showWarnings = FALSE, recursive = TRUE)
+dir.create("Figures/PDF", showWarnings = FALSE, recursive = TRUE)
+dir.create("Figures/JPEG", showWarnings = FALSE, recursive = TRUE)
+
+year_colors <- c("2016" = "#2C7BB6", "2025" = "#D7191C")
+year_levels <- c("2016", "2025")
+
+publication_theme <- theme_classic(base_size = 11) +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_rect(fill = "white", color = "black", linewidth = 0.4),
+    strip.text = element_text(face = "bold", size = 10),
+    legend.position = "top",
+    axis.text = element_text(color = "black"),
+    plot.title = element_text(face = "bold", size = 12),
+    plot.subtitle = element_text(size = 10),
+    plot.caption = element_text(hjust = 0, size = 9)
+  )
+
+# Reused for every report figure so the standalone exports remain consistent.
+save_figure <- function(plot_object, filename, width, height) {
+  ggsave(
+    filename = file.path("Figures/PDF", paste0(filename, ".pdf")),
+    plot = plot_object,
+    width = width,
+    height = height,
+    units = "in",
+    device = cairo_pdf,
+    bg = "white"
+  )
+  ggsave(
+    filename = file.path("Figures/JPEG", paste0(filename, ".jpg")),
+    plot = plot_object,
+    width = width,
+    height = height,
+    units = "in",
+    dpi = 300,
+    bg = "white"
+  )
+}
+
+# This logic is used for richness, every class, and every molecular property.
+paired_test_summary <- function(data, group_name) {
+  complete_data <- data %>%
+    filter(!is.na(value_2016), !is.na(value_2025)) %>%
+    mutate(difference = value_2025 - value_2016)
+
+  if (nrow(complete_data) < 3) {
+    stop("Fewer than three complete pairs are available for ", group_name, ".")
+  }
+
+  differences <- complete_data$difference
+  shapiro_p <- if (length(differences) <= 5000 && stats::sd(differences) > 0) {
+    stats::shapiro.test(differences)$p.value
+  } else {
+    NA_real_
+  }
+
+  if (all(differences == 0)) {
+    test_name <- "No change: all paired differences are zero"
+    statistic_name <- "not_applicable"
+    statistic <- 0
+    p_value <- 1
+    effect_size_name <- "paired_change"
+    effect_size <- 0
+  } else if (!is.na(shapiro_p) && shapiro_p > 0.05) {
+    test_result <- stats::t.test(
+      complete_data$value_2025,
+      complete_data$value_2016,
+      paired = TRUE
+    )
+    test_name <- "Paired t-test"
+    statistic_name <- "t"
+    statistic <- unname(test_result$statistic)
+    p_value <- test_result$p.value
+    effect_size_name <- "Cohen_dz"
+    effect_size <- mean(differences) / stats::sd(differences)
+  } else {
+    test_result <- suppressWarnings(stats::wilcox.test(
+      complete_data$value_2025,
+      complete_data$value_2016,
+      paired = TRUE,
+      exact = FALSE,
+      correct = TRUE
+    ))
+    test_name <- "Paired Wilcoxon signed-rank test"
+    statistic_name <- "V"
+    statistic <- unname(test_result$statistic)
+    p_value <- test_result$p.value
+    effect_size_name <- "rank_biserial"
+    nonzero_differences <- differences[differences != 0]
+    ranks <- rank(abs(nonzero_differences))
+    effect_size <- sum(sign(nonzero_differences) * ranks) / sum(ranks)
+  }
+
+  tibble(
+    variable = group_name,
+    n_pairs = nrow(complete_data),
+    mean_2016 = mean(complete_data$value_2016),
+    mean_2025 = mean(complete_data$value_2025),
+    median_2016 = median(complete_data$value_2016),
+    median_2025 = median(complete_data$value_2025),
+    mean_change = mean(differences),
+    median_change = median(differences),
+    shapiro_p_difference = shapiro_p,
+    selection_reason = if_else(
+      is.na(shapiro_p),
+      "Normality was not testable because all differences were identical",
+      if_else(
+        shapiro_p > 0.05,
+        "Paired differences did not depart from normality (Shapiro-Wilk p > 0.05)",
+        "Paired differences departed from normality (Shapiro-Wilk p <= 0.05)"
+      )
+    ),
+    test = test_name,
+    statistic_name = statistic_name,
+    statistic = statistic,
+    p_value = p_value,
+    effect_size_name = effect_size_name,
+    effect_size = effect_size
+  )
+}
+```
+
+# Dataset and paired-site identification
+
+```{r read-inputs-and-qc}
+data_file <- "Results/HJA_2016_HJW_2025-Processed_Data_Final.csv"
+mol_file <- "Results/HJA_2016_HJW_2025-Processed_Mol_Final.csv"
+compound_file <- "Results/HJA_2016_HJW_2025_Compound_Class_Summary.csv"
+elemental_file <- "Results/HJA_2016_HJW_2025_Elemental_Composition_Summary.csv"
+property_file <- "Results/HJA_2016_HJW_2025_MolInfo_Summary.csv"
+coordinates_2016_file <- "WHONDRS_HJA_2016_Sample_Data/WHONDRS_HJA_2016_Coordinates.csv"
+metadata_2025_file <- "v2_WHONDRS_HJW_Sample_Data/WHONDRS_HJW_Field_Metadata.csv"
+
+feature_data <- read.csv(data_file, check.names = FALSE)
+molecular_data <- read.csv(mol_file, check.names = FALSE)
+
+if (names(feature_data)[1] != "Calibrated m/z" || names(molecular_data)[1] != "Calibrated m/z") {
+  stop("The first column in both final Data and Mol files must be 'Calibrated m/z'.")
+}
+if (anyDuplicated(feature_data[[1]]) > 0 || anyDuplicated(molecular_data[[1]]) > 0) {
+  stop("Duplicate calibrated-mass feature rows were detected.")
+}
+if (!identical(feature_data[[1]], molecular_data[[1]])) {
+  stop("The final Data and Mol feature rows are not identical and in the same order.")
+}
+
+sample_names <- names(feature_data)[-1]
+if (anyDuplicated(sample_names) > 0) {
+  stop("Duplicate sample names were detected in the final presence/absence matrix.")
+}
+
+presence_absence <- as.matrix(feature_data[, sample_names, drop = FALSE])
+storage.mode(presence_absence) <- "numeric"
+observed_values <- sort(unique(as.vector(presence_absence)))
+unexpected_values <- setdiff(observed_values[!is.na(observed_values)], c(0, 1))
+if (length(unexpected_values) > 0) {
+  stop(
+    "The final molecular matrix contains non-binary values: ",
+    paste(unexpected_values, collapse = ", ")
+  )
+}
+
+sample_inventory <- tibble(sample = sample_names) %>%
+  mutate(
+    year = str_extract(sample, "(2016|2025)$"),
+    site_name = str_remove(sample, "^HJA_") %>% str_remove("_(2016|2025)$")
+  )
+if (any(is.na(sample_inventory$year))) {
+  stop("At least one sample name does not end in 2016 or 2025.")
+}
+if (anyDuplicated(sample_inventory %>% select(site_name, year)) > 0) {
+  stop("Duplicate site-year sample names were detected after parsing sample names.")
+}
+
+coordinates_2016 <- read_csv(coordinates_2016_file, show_col_types = FALSE) %>%
+  transmute(
+    site_name_2016 = as.character(Site_ID),
+    latitude_2016 = Latitude,
+    longitude_2016 = Longitude
+  )
+metadata_2025 <- read_csv(metadata_2025_file, show_col_types = FALSE) %>%
+  transmute(
+    site_name_2025 = as.character(Site_ID),
+    latitude_2025 = Latitude,
+    longitude_2025 = Longitude
+  )
+if (anyDuplicated(coordinates_2016$site_name_2016) > 0 || anyDuplicated(metadata_2025$site_name_2025) > 0) {
+  stop("Duplicate site IDs were found in one of the coordinate files.")
+}
+```
+
+```{r create-site-pairing}
+samples_2016 <- sample_inventory %>%
+  filter(year == "2016") %>%
+  transmute(sample_2016 = sample, site_name_2016 = site_name)
+samples_2025 <- sample_inventory %>%
+  filter(year == "2025") %>%
+  transmute(sample_2025 = sample, site_name_2025 = site_name)
+
+exact_pairs <- samples_2016 %>%
+  inner_join(samples_2025, by = c("site_name_2016" = "site_name_2025")) %>%
+  mutate(
+    site_name_2025 = site_name_2016,
+    match_type = "exact_name"
+  )
+
+renamed_candidates <- tribble(
+  ~site_name_2016, ~site_name_2025,
+  "CC-1-15m", "CC-1",
+  "CC-2-55m", "CC-2",
+  "CC-3-100m", "CC-3",
+  "CC-4-250m", "CC-4",
+  "KC-1-275m", "KC-1",
+  "KC-2-360m", "KC-2",
+  "KC-3-400m", "KC-3",
+  "KerryCreek2", "KC-4",
+  "WS1_250m", "WS1-4",
+  "WS3-1_30m", "WS3-1"
+)
+
+coordinate_threshold_m <- 100
+renamed_candidate_diagnostics <- renamed_candidates %>%
+  left_join(samples_2016, by = "site_name_2016") %>%
+  left_join(samples_2025, by = "site_name_2025") %>%
+  left_join(coordinates_2016, by = "site_name_2016") %>%
+  left_join(metadata_2025, by = "site_name_2025") %>%
+  mutate(
+    latitude_2016_rad = latitude_2016 * pi / 180,
+    latitude_2025_rad = latitude_2025 * pi / 180,
+    latitude_difference = (latitude_2025 - latitude_2016) * pi / 180,
+    longitude_difference = (longitude_2025 - longitude_2016) * pi / 180,
+    haversine_a = sin(latitude_difference / 2)^2 +
+      cos(latitude_2016_rad) * cos(latitude_2025_rad) * sin(longitude_difference / 2)^2,
+    distance_m = 6371000 * 2 * atan2(sqrt(haversine_a), sqrt(1 - haversine_a)),
+    decision = case_when(
+      is.na(sample_2016) | is.na(sample_2025) ~ "excluded_missing_sample",
+      is.na(distance_m) ~ "excluded_missing_coordinates",
+      distance_m <= coordinate_threshold_m ~ "confirmed_coordinate_verified",
+      TRUE ~ "excluded_distance_over_100_m"
+    )
+  ) %>%
+  select(
+    site_name_2016, site_name_2025, sample_2016, sample_2025,
+    latitude_2016, longitude_2016, latitude_2025, longitude_2025,
+    distance_m, decision
+  )
+
+write_csv(
+  renamed_candidate_diagnostics,
+  "Analysis_Results/HJA_2016_2025_renamed_site_candidate_diagnostics.csv"
+)
+
+coordinate_verified_pairs <- renamed_candidate_diagnostics %>%
+  filter(decision == "confirmed_coordinate_verified") %>%
+  transmute(
+    sample_2016,
+    sample_2025,
+    site_name_2016,
+    site_name_2025,
+    match_type = "coordinate_verified"
+  )
+
+site_pairing <- bind_rows(exact_pairs, coordinate_verified_pairs) %>%
+  left_join(coordinates_2016, by = "site_name_2016") %>%
+  left_join(metadata_2025, by = "site_name_2025") %>%
+  mutate(
+    latitude_2016_rad = latitude_2016 * pi / 180,
+    latitude_2025_rad = latitude_2025 * pi / 180,
+    latitude_difference = (latitude_2025 - latitude_2016) * pi / 180,
+    longitude_difference = (longitude_2025 - longitude_2016) * pi / 180,
+    haversine_a = sin(latitude_difference / 2)^2 +
+      cos(latitude_2016_rad) * cos(latitude_2025_rad) * sin(longitude_difference / 2)^2,
+    distance_m = 6371000 * 2 * atan2(sqrt(haversine_a), sqrt(1 - haversine_a)),
+    site_pair_id = paste0("PAIR_", stringr::str_pad(row_number(), width = 3, pad = "0")),
+    .before = 1
+  ) %>%
+  select(
+    site_pair_id, sample_2016, sample_2025, site_name_2016, site_name_2025,
+    latitude_2016, longitude_2016, latitude_2025, longitude_2025,
+    distance_m, match_type
+  ) %>%
+  arrange(site_name_2016)
+
+if (anyDuplicated(site_pairing$site_pair_id) > 0 ||
+    anyDuplicated(site_pairing$sample_2016) > 0 ||
+    anyDuplicated(site_pairing$sample_2025) > 0) {
+  stop("Duplicate site pairs or reused samples were detected in the confirmed pairing table.")
+}
+if (any(is.na(site_pairing$sample_2016)) || any(is.na(site_pairing$sample_2025))) {
+  stop("A confirmed pair is missing a sample name.")
+}
+if (any(!site_pairing$sample_2016 %in% sample_names) ||
+    any(!site_pairing$sample_2025 %in% sample_names)) {
+  stop("A confirmed paired sample is missing from the final presence/absence matrix.")
+}
+if (any(is.na(site_pairing$latitude_2016)) || any(is.na(site_pairing$latitude_2025))) {
+  stop("Coordinates are missing for at least one confirmed pair.")
+}
+
+write_csv(site_pairing, "Analysis_Results/HJA_2016_2025_site_pairing.csv")
+
+unpaired_2016 <- samples_2016 %>%
+  filter(!sample_2016 %in% site_pairing$sample_2016)
+unpaired_2025 <- samples_2025 %>%
+  filter(!sample_2025 %in% site_pairing$sample_2025)
+write_csv(unpaired_2016, "Analysis_Results/HJA_2016_2025_unpaired_2016_sites.csv")
+write_csv(unpaired_2025, "Analysis_Results/HJA_2016_2025_unpaired_2025_sites.csv")
+
+pairing_summary <- tibble(
+  measure = c(
+    "Total 2016 samples", "Total 2025 samples", "Exact-name pairs",
+    "Coordinate-verified renamed pairs", "Total confirmed pairs",
+    "Unpaired 2016 sites", "Unpaired 2025 sites"
+  ),
+  count = c(
+    nrow(samples_2016), nrow(samples_2025),
+    sum(site_pairing$match_type == "exact_name"),
+    sum(site_pairing$match_type == "coordinate_verified"),
+    nrow(site_pairing), nrow(unpaired_2016), nrow(unpaired_2025)
+  )
+)
+write_csv(pairing_summary, "Analysis_Results/HJA_2016_2025_pairing_summary.csv")
+
+site_display_order <- site_pairing %>%
+  arrange(site_name_2025) %>%
+  pull(site_name_2025)
+
+site_order <- site_pairing %>%
+  arrange(site_name_2025) %>%
+  pull(site_pair_id)
+
+sample_metadata <- site_pairing %>%
+  transmute(
+    site_pair_id,
+    site_display_name = site_name_2025,
+    sample_2016,
+    sample_2025
+  ) %>%
+  pivot_longer(
+    cols = c(sample_2016, sample_2025),
+    names_to = "year_source",
+    values_to = "sample"
+  ) %>%
+  mutate(
+    year = factor(if_else(year_source == "sample_2016", "2016", "2025"), levels = year_levels),
+    site_pair_id = factor(site_pair_id, levels = site_order),
+    site_display_name = factor(site_display_name, levels = site_display_order)
+  ) %>%
+  select(site_pair_id, site_display_name, sample, year)
+```
+
+There were **`r nrow(samples_2016)` 2016 samples**, **`r nrow(samples_2025)` 2025 samples**, and **`r nrow(site_pairing)` confirmed paired sites**. Of these, `r sum(site_pairing$match_type == "exact_name")` were exact-name matches and `r sum(site_pairing$match_type == "coordinate_verified")` were coordinate-verified renamed matches. `r nrow(unpaired_2016)` 2016 sites and `r nrow(unpaired_2025)` 2025 sites were excluded from paired analyses.
+
+```{r pairing-tables, echo=FALSE}
+knitr::kable(pairing_summary, caption = "Paired-site accounting")
+```
+
+# 1. Molecular richness
+
+Molecular richness is the number of molecular features detected in a sample. Richness was calculated from the binary matrix, and each site's change is 2025 richness minus 2016 richness.
+
+```{r richness-analysis}
+paired_sample_names <- c(site_pairing$sample_2016, site_pairing$sample_2025)
+paired_presence_absence <- presence_absence[, paired_sample_names, drop = FALSE]
+
+if (any(colSums(paired_presence_absence, na.rm = TRUE) == 0)) {
+  stop("At least one confirmed paired sample has zero detected molecular features.")
+}
+
+richness_long <- tibble(
+  sample = colnames(paired_presence_absence),
+  richness = colSums(paired_presence_absence, na.rm = TRUE)
+) %>%
+  left_join(sample_metadata, by = "sample")
+if (any(is.na(richness_long$site_pair_id))) {
+  stop("A richness sample was not found in the confirmed pairing table.")
+}
+
+richness_by_site <- richness_long %>%
+  mutate(year = as.character(year)) %>%
+  select(site_pair_id, year, richness) %>%
+  pivot_wider(names_from = year, values_from = richness, names_prefix = "richness_") %>%
+  mutate(richness_change = richness_2025 - richness_2016) %>%
+  left_join(
+    site_pairing %>%
+      transmute(site_pair_id, site_name = site_name_2025, site_name_2016, site_name_2025),
+    by = "site_pair_id"
+  ) %>%
+  select(
+    site_pair_id, site_name, site_name_2016, site_name_2025,
+    richness_2016, richness_2025, richness_change
+  )
+write_csv(richness_by_site, "Analysis_Results/HJA_2016_2025_richness_by_site.csv")
+
+richness_test <- richness_by_site %>%
+  transmute(
+    value_2016 = richness_2016,
+    value_2025 = richness_2025
+  ) %>%
+  paired_test_summary("Molecular richness")
+write_csv(richness_test, "Analysis_Results/HJA_2016_2025_richness_statistics.csv")
+
+figure_richness <- richness_long %>%
+  mutate(site_display_name = factor(site_display_name, levels = rev(site_display_order))) %>%
+  ggplot(aes(x = richness, y = site_display_name, fill = year)) +
+  geom_col(position = position_dodge2(width = 0.8, preserve = "single"), width = 0.72) +
+  scale_fill_manual(values = year_colors, drop = FALSE) +
+  labs(
+    x = "Molecular richness",
+    y = "Site",
+    fill = "Year",
+    title = "Molecular richness by site, 2016 and 2025"
+  ) +
+  publication_theme
+save_figure(figure_richness, "Figure_Richness_2016_2025", width = 10, height = 12)
+```
+
+```{r richness-figure, echo=FALSE, fig.width=10, fig.height=12}
+figure_richness
+```
+
+The `r richness_test$test` was selected because `r tolower(richness_test$selection_reason)`. Across `r richness_test$n_pairs` paired sites, mean richness was `r round(richness_test$mean_2016, 1)` in 2016 and `r round(richness_test$mean_2025, 1)` in 2025; medians were `r round(richness_test$median_2016, 1)` and `r round(richness_test$median_2025, 1)`. The mean paired change was `r round(richness_test$mean_change, 1)` formulas and the median change was `r round(richness_test$median_change, 1)`. The test statistic was `r round(richness_test$statistic, 3)` (`r richness_test$statistic_name`), with p = `r format.pval(richness_test$p_value, digits = 3)`, and the `r richness_test$effect_size_name` effect size was `r round(richness_test$effect_size, 3)`.
+
+# 2. Overall molecular composition
+
+```{r composition-analysis}
+community_matrix <- t(paired_presence_absence)
+community_matrix[is.na(community_matrix)] <- 0
+
+jaccard_distance <- vegdist(community_matrix, method = "jaccard", binary = TRUE)
+set.seed(20162025)
+nmds_result <- metaMDS(
+  community_matrix,
+  distance = "jaccard",
+  binary = TRUE,
+  k = 2,
+  trymax = 500,
+  autotransform = FALSE,
+  trace = FALSE
+)
+if (!nmds_result$converged) {
+  stop("NMDS did not converge after trymax = 500.")
+}
+
+nmds_scores <- as.data.frame(scores(nmds_result, display = "sites")) %>%
+  rownames_to_column("sample") %>%
+  left_join(sample_metadata, by = "sample") %>%
+  arrange(site_pair_id, year)
+if (any(is.na(nmds_scores$site_pair_id))) {
+  stop("An NMDS sample was not found in the confirmed pairing table.")
+}
+write_csv(nmds_scores, "Analysis_Results/HJA_2016_2025_NMDS_scores.csv")
+
+permanova_metadata <- sample_metadata %>%
+  mutate(sample = factor(sample, levels = rownames(community_matrix))) %>%
+  arrange(sample) %>%
+  mutate(
+    year = factor(year, levels = year_levels),
+    site_pair_id = factor(site_pair_id)
+  )
+if (!identical(as.character(permanova_metadata$sample), rownames(community_matrix))) {
+  stop("Community-matrix rows and PERMANOVA metadata are not aligned.")
+}
+
+permutation_count <- 9999
+paired_permutations <- how(
+  blocks = permanova_metadata$site_pair_id,
+  within = Within(type = "free"),
+  nperm = permutation_count
+)
+set.seed(20162025)
+permanova_result <- adonis2(
+  jaccard_distance ~ year,
+  data = permanova_metadata,
+  permutations = paired_permutations
+)
+permanova_table <- tibble(
+  term = "Year",
+  pseudo_F = permanova_result$F[1],
+  R2 = permanova_result$R2[1],
+  p_value = permanova_result$`Pr(>F)`[1],
+  permutations = permutation_count,
+  permutation_design = "Free swaps within paired-site blocks"
+)
+write_csv(permanova_table, "Analysis_Results/HJA_2016_2025_PERMANOVA.csv")
+
+dispersion_result <- betadisper(jaccard_distance, group = permanova_metadata$year)
+set.seed(20162025)
+dispersion_permutation <- permutest(
+  dispersion_result,
+  permutations = paired_permutations
+)
+dispersion_anova <- anova(dispersion_result)
+dispersion_table <- tibble(
+  term = "Year",
+  F = dispersion_anova$`F value`[1],
+  p_value_permutation = dispersion_permutation$tab$`Pr(>F)`[1],
+  p_value_parametric = dispersion_anova$`Pr(>F)`[1],
+  permutations = permutation_count,
+  permutation_design = "Free swaps within paired-site blocks"
+)
+write_csv(dispersion_table, "Analysis_Results/HJA_2016_2025_betadisper.csv")
+
+figure_nmds <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2)) +
+  geom_path(aes(group = site_pair_id), color = "black", linewidth = 0.3, alpha = 0.35) +
+  geom_point(aes(color = year, shape = year), size = 2.5, alpha = 0.9) +
+  scale_color_manual(values = year_colors, drop = FALSE) +
+  scale_shape_manual(values = c("2016" = 16, "2025" = 17), drop = FALSE) +
+  coord_equal() +
+  labs(
+    x = "NMDS axis 1",
+    y = "NMDS axis 2",
+    color = "Year",
+    shape = "Year",
+    title = "Jaccard NMDS of detected molecular features",
+    subtitle = paste0("Paired sites connected; stress = ", round(nmds_result$stress, 3))
+  ) +
+  publication_theme
+save_figure(figure_nmds, "Figure_NMDS_Jaccard_2016_2025", width = 8, height = 7)
+```
+
+```{r nmds-figure, echo=FALSE, fig.width=8, fig.height=7}
+figure_nmds
+```
+
+The two-dimensional NMDS converged with stress = `r round(nmds_result$stress, 3)`. The block-aware PERMANOVA used `r format(permutation_count, big.mark = ",")` requested permutations, allowing year labels to swap only within sites. Year explained `r round(100 * permanova_table$R2, 2)`% of Jaccard variation (pseudo-F = `r round(permanova_table$pseudo_F, 3)`, p = `r format.pval(permanova_table$p_value, digits = 3)`). The dispersion test gave F = `r round(dispersion_table$F, 3)` and permutation p = `r format.pval(dispersion_table$p_value_permutation, digits = 3)`. `r if (dispersion_table$p_value_permutation < 0.05) "Because dispersion differs significantly by year, the PERMANOVA result may reflect both a shift in composition and a change in among-site variability and should be interpreted cautiously." else "There was no statistically detectable difference in multivariate dispersion, so dispersion does not provide evidence of a major confounding difference in among-site variability."`
+
+# 3. Compound-class composition
+
+For each sample, each class count was divided by the total number of classified detected formulas. The plot therefore shows the **percent of detected molecular formulas** assigned to each compound class, not feature intensity. Sites have one stable order across all facets.
+
+```{r compound-analysis}
+compound_summary <- read.csv(compound_file, check.names = FALSE)
+names(compound_summary)[1] <- "sample"
+if (anyDuplicated(compound_summary$sample) > 0) {
+  stop("Duplicate sample names were detected in the compound-class summary.")
+}
+if (any(!paired_sample_names %in% compound_summary$sample)) {
+  stop("At least one confirmed paired sample is missing from the compound-class summary.")
+}
+compound_summary_only <- setdiff(compound_summary$sample, paired_sample_names)
+message(length(compound_summary_only), " unpaired compound-summary samples were checked and excluded.")
+
+compound_paired <- compound_summary %>%
+  filter(sample %in% paired_sample_names)
+compound_totals <- rowSums(compound_paired[, -1, drop = FALSE], na.rm = TRUE)
+if (any(compound_totals <= 0)) {
+  stop("A paired sample has a zero compound-class total.")
+}
+
+compound_long <- compound_paired %>%
+  mutate(classified_total = compound_totals) %>%
+  pivot_longer(
+    cols = -c(sample, classified_total),
+    names_to = "class",
+    values_to = "formula_count"
+  ) %>%
+  mutate(relative_abundance = formula_count / classified_total) %>%
+  left_join(sample_metadata, by = "sample")
+if (any(is.na(compound_long$relative_abundance)) || any(is.na(compound_long$site_pair_id))) {
+  stop("Unexpected NA values were introduced in compound-class proportions or pairing metadata.")
+}
+
+compound_wide <- compound_long %>%
+  mutate(year = as.character(year)) %>%
+  select(class, site_pair_id, year, relative_abundance) %>%
+  pivot_wider(names_from = year, values_from = relative_abundance, names_prefix = "value_")
+
+compound_statistics <- compound_wide %>%
+  group_split(class) %>%
+  map_dfr(~ paired_test_summary(.x, unique(.x$class))) %>%
+  rename(class = variable) %>%
+  mutate(p_adjusted_BH = p.adjust(p_value, method = "BH")) %>%
+  select(
+    class, n_pairs, mean_2016, mean_2025, median_2016, median_2025,
+    mean_change, median_change, shapiro_p_difference, selection_reason,
+    test, statistic_name, statistic, p_value, p_adjusted_BH,
+    effect_size_name, effect_size
+  ) %>%
+  arrange(p_adjusted_BH, p_value)
+write_csv(
+  compound_statistics,
+  "Analysis_Results/HJA_2016_2025_compound_class_statistics.csv"
+)
+
+compound_plot_data <- compound_long %>%
+  mutate(
+    percent = 100 * relative_abundance,
+    site_display_name = factor(site_display_name, levels = rev(site_display_order)),
+    year = factor(year, levels = year_levels),
+    class = factor(class, levels = compound_statistics$class)
+  )
+
+figure_compound <- ggplot(compound_plot_data, aes(x = percent, y = site_display_name, fill = year)) +
+  geom_col(position = position_dodge2(width = 0.8, preserve = "single"), width = 0.72) +
+  facet_wrap(~ class, ncol = 3, scales = "free_x") +
+  scale_fill_manual(values = year_colors, drop = FALSE) +
+  labs(
+    x = "Percent of detected molecular formulas",
+    y = "Site",
+    fill = "Year",
+    title = "Compound-class representation at paired sites"
+  ) +
+  publication_theme +
+  theme(axis.text.y = element_text(size = 6.5))
+compound_rows <- ceiling(length(unique(compound_plot_data$class)) / 3)
+compound_height <- max(12, compound_rows * 5)
+save_figure(
+  figure_compound,
+  "Figure_Compound_Classes_2016_2025",
+  width = 14,
+  height = compound_height
+)
+```
+
+```{r compound-figure, echo=FALSE, fig.width=14, fig.height=30}
+figure_compound
+```
+
+```{r compound-table, echo=FALSE}
+knitr::kable(
+  compound_statistics %>%
+    mutate(
+      across(c(mean_2016, mean_2025, mean_change), ~ round(100 * .x, 2)),
+      p_value = signif(p_value, 3),
+      p_adjusted_BH = signif(p_adjusted_BH, 3)
+    ) %>%
+    select(class, n_pairs, mean_2016, mean_2025, mean_change, test, p_value, p_adjusted_BH),
+  caption = "Compound-class paired tests. Means and changes are percentage points."
+)
+```
+
+`r sum(compound_statistics$p_adjusted_BH < 0.05)` of `r nrow(compound_statistics)` compound classes had FDR-adjusted p < 0.05. `r if (any(compound_statistics$p_adjusted_BH < 0.05)) paste0("The strongest FDR-supported changes were observed for ", paste(head(compound_statistics$class[compound_statistics$p_adjusted_BH < 0.05], 3), collapse = ", "), ".") else paste0("No class retained statistical support after FDR correction; the smallest adjusted p-value was ", format.pval(min(compound_statistics$p_adjusted_BH), digits = 3), ".")` These results describe proportional representation among detected and classified formulas and do not measure peak intensity.
+
+# 4. Elemental composition
+
+Elemental-class counts were converted to the percent of classified detected formulas in each sample. All elemental classes present in the summary file were retained.
+
+```{r elemental-analysis}
+elemental_summary <- read.csv(elemental_file, check.names = FALSE)
+names(elemental_summary)[1] <- "sample"
+if (anyDuplicated(elemental_summary$sample) > 0) {
+  stop("Duplicate sample names were detected in the elemental-composition summary.")
+}
+if (any(!paired_sample_names %in% elemental_summary$sample)) {
+  stop("At least one confirmed paired sample is missing from the elemental-composition summary.")
+}
+elemental_summary_only <- setdiff(elemental_summary$sample, paired_sample_names)
+message(length(elemental_summary_only), " unpaired elemental-summary samples were checked and excluded.")
+
+elemental_paired <- elemental_summary %>%
+  filter(sample %in% paired_sample_names)
+elemental_totals <- rowSums(elemental_paired[, -1, drop = FALSE], na.rm = TRUE)
+if (any(elemental_totals <= 0)) {
+  stop("A paired sample has a zero elemental-composition total.")
+}
+
+elemental_long <- elemental_paired %>%
+  mutate(classified_total = elemental_totals) %>%
+  pivot_longer(
+    cols = -c(sample, classified_total),
+    names_to = "class",
+    values_to = "formula_count"
+  ) %>%
+  mutate(relative_abundance = formula_count / classified_total) %>%
+  left_join(sample_metadata, by = "sample")
+if (any(is.na(elemental_long$relative_abundance)) || any(is.na(elemental_long$site_pair_id))) {
+  stop("Unexpected NA values were introduced in elemental proportions or pairing metadata.")
+}
+
+elemental_wide <- elemental_long %>%
+  mutate(year = as.character(year)) %>%
+  select(class, site_pair_id, year, relative_abundance) %>%
+  pivot_wider(names_from = year, values_from = relative_abundance, names_prefix = "value_")
+
+elemental_statistics <- elemental_wide %>%
+  group_split(class) %>%
+  map_dfr(~ paired_test_summary(.x, unique(.x$class))) %>%
+  rename(class = variable) %>%
+  mutate(p_adjusted_BH = p.adjust(p_value, method = "BH")) %>%
+  select(
+    class, n_pairs, mean_2016, mean_2025, median_2016, median_2025,
+    mean_change, median_change, shapiro_p_difference, selection_reason,
+    test, statistic_name, statistic, p_value, p_adjusted_BH,
+    effect_size_name, effect_size
+  ) %>%
+  arrange(p_adjusted_BH, p_value)
+write_csv(
+  elemental_statistics,
+  "Analysis_Results/HJA_2016_2025_elemental_composition_statistics.csv"
+)
+
+elemental_plot_data <- elemental_long %>%
+  mutate(
+    percent = 100 * relative_abundance,
+    site_display_name = factor(site_display_name, levels = rev(site_display_order)),
+    year = factor(year, levels = year_levels),
+    class = factor(class, levels = elemental_statistics$class)
+  )
+
+figure_elemental <- ggplot(elemental_plot_data, aes(x = percent, y = site_display_name, fill = year)) +
+  geom_col(position = position_dodge2(width = 0.8, preserve = "single"), width = 0.72) +
+  facet_wrap(~ class, ncol = 2) +
+  scale_fill_manual(values = year_colors, drop = FALSE) +
+  labs(
+    x = "Percent of detected molecular formulas",
+    y = "Site",
+    fill = "Year",
+    title = "Elemental-class representation at paired sites"
+  ) +
+  publication_theme +
+  theme(axis.text.y = element_text(size = 7))
+elemental_rows <- ceiling(length(unique(elemental_plot_data$class)) / 2)
+elemental_height <- max(10, elemental_rows * 5.5)
+save_figure(
+  figure_elemental,
+  "Figure_Elemental_Composition_2016_2025",
+  width = 12,
+  height = elemental_height
+)
+```
+
+```{r elemental-figure, echo=FALSE, fig.width=12, fig.height=11}
+figure_elemental
+```
+
+```{r elemental-table, echo=FALSE}
+knitr::kable(
+  elemental_statistics %>%
+    mutate(
+      across(c(mean_2016, mean_2025, mean_change), ~ round(100 * .x, 2)),
+      p_value = signif(p_value, 3),
+      p_adjusted_BH = signif(p_adjusted_BH, 3)
+    ) %>%
+    select(class, n_pairs, mean_2016, mean_2025, mean_change, test, p_value, p_adjusted_BH),
+  caption = "Elemental-composition paired tests. Means and changes are percentage points."
+)
+```
+
+`r sum(elemental_statistics$p_adjusted_BH < 0.05)` of `r nrow(elemental_statistics)` elemental classes had FDR-adjusted p < 0.05. `r if (any(elemental_statistics$p_adjusted_BH < 0.05)) paste0("The strongest FDR-supported changes were observed for ", paste(head(elemental_statistics$class[elemental_statistics$p_adjusted_BH < 0.05], 3), collapse = ", "), ".") else paste0("No elemental class retained statistical support after FDR correction; the smallest adjusted p-value was ", format.pval(min(elemental_statistics$p_adjusted_BH), digits = 3), ".")`
+
+# 5. Molecular properties
+
+The elemental absence codes were corrected in the staged CoreMS files before the ESS-DIVE merge and molecular-property calculations. The final Mol file and sample-level property summary are checked here for missing, nonfinite, or implausible values before analysis. Each plotted value is the mean property across the molecular formulas detected in that sample.
+
+```{r molecular-property-analysis}
+property_summary <- read.csv(property_file, check.names = FALSE)
+names(property_summary)[1] <- "sample"
+if (anyDuplicated(property_summary$sample) > 0) {
+  stop("Duplicate sample names were detected in the molecular-property summary.")
+}
+if (any(!paired_sample_names %in% property_summary$sample)) {
+  stop("At least one confirmed paired sample is missing from the molecular-property summary.")
+}
+property_summary_only <- setdiff(property_summary$sample, paired_sample_names)
+message(length(property_summary_only), " unpaired molecular-property samples were checked and excluded.")
+
+property_mapping <- tribble(
+  ~property, ~source_column, ~plausible_min, ~plausible_max,
+  "NOSC", "NOSC.mean", -4, 4,
+  "O:C ratio", "OtoC.mean", 0, 2,
+  "H:C ratio", "HtoC.mean", 0, 3,
+  "AI_Mod", "AI_Mod.mean", -1, 1,
+  "DBE", "DBE.mean", 0, 100,
+  "lambdaO2", "lambdaO2_7.mean", -1, 1
+)
+missing_property_columns <- setdiff(property_mapping$source_column, names(property_summary))
+if (length(missing_property_columns) > 0) {
+  stop(
+    "Requested molecular-property mean columns are missing: ",
+    paste(missing_property_columns, collapse = ", ")
+  )
+}
+
+property_source_diagnostics <- property_summary %>%
+  filter(sample %in% paired_sample_names) %>%
+  select(sample, all_of(property_mapping$source_column)) %>%
+  pivot_longer(-sample, names_to = "source_column", values_to = "summary_value") %>%
+  left_join(property_mapping, by = "source_column") %>%
+  group_by(property, source_column, plausible_min, plausible_max) %>%
+  summarise(
+    minimum_existing_mean = min(summary_value, na.rm = TRUE),
+    maximum_existing_mean = max(summary_value, na.rm = TRUE),
+    nonfinite_mean_count = sum(!is.finite(summary_value)),
+    outside_plausible_range_count = sum(
+      summary_value < plausible_min | summary_value > plausible_max,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    recalculation_required = nonfinite_mean_count > 0 | outside_plausible_range_count > 0,
+    decision = if_else(
+      recalculation_required,
+      "Recalculate from final Mol and binary Data files",
+      "Existing summary passed range check"
+    )
+  )
+write_csv(
+  property_source_diagnostics,
+  "Analysis_Results/HJA_2016_2025_molecular_property_source_diagnostics.csv"
+)
+
+if (any(property_source_diagnostics$recalculation_required)) {
+  stop(
+    "The molecular-property summary contains invalid values. Regenerate it from the corrected staged CoreMS files."
+  )
+}
+
+property_long <- property_summary %>%
+  filter(sample %in% paired_sample_names) %>%
+  select(sample, all_of(property_mapping$source_column)) %>%
+  pivot_longer(
+    -sample,
+    names_to = "source_column",
+    values_to = "value"
+  ) %>%
+  left_join(
+    property_mapping %>% select(property, source_column),
+    by = "source_column"
+  ) %>%
+  select(sample, property, value) %>%
+  left_join(sample_metadata, by = "sample")
+if (any(is.na(property_long$value)) || any(is.na(property_long$site_pair_id))) {
+  stop("Unexpected NA values were found in molecular-property means or pairing metadata.")
+}
+write_csv(
+  property_long %>% select(site_pair_id, sample, year, property, value),
+  "Analysis_Results/HJA_2016_2025_molecular_properties_by_sample.csv"
+)
+
+property_wide <- property_long %>%
+  mutate(year = as.character(year)) %>%
+  select(property, site_pair_id, year, value) %>%
+  pivot_wider(names_from = year, values_from = value, names_prefix = "value_")
+
+property_statistics <- property_wide %>%
+  group_split(property) %>%
+  map_dfr(~ paired_test_summary(.x, unique(.x$property))) %>%
+  rename(property = variable) %>%
+  mutate(
+    p_adjusted_BH = p.adjust(p_value, method = "BH"),
+    calculation_source = "Corrected upstream Results molecular-property summary"
+  ) %>%
+  select(
+    property, n_pairs, mean_2016, mean_2025, median_2016, median_2025,
+    mean_change, median_change, shapiro_p_difference, selection_reason,
+    test, statistic_name, statistic, p_value, p_adjusted_BH,
+    effect_size_name, effect_size, calculation_source
+  ) %>%
+  arrange(p_adjusted_BH, p_value)
+write_csv(
+  property_statistics,
+  "Analysis_Results/HJA_2016_2025_molecular_property_statistics.csv"
+)
+
+figure_properties <- property_long %>%
+  mutate(
+    year = factor(year, levels = year_levels),
+    property = factor(property, levels = property_mapping$property),
+    site_display_name = factor(site_display_name, levels = rev(site_display_order))
+  ) %>%
+  ggplot(aes(x = value, y = site_display_name, fill = year)) +
+  geom_col(position = position_dodge2(width = 0.8, preserve = "single"), width = 0.72) +
+  facet_wrap(~ property, scales = "free_x", ncol = 2) +
+  scale_fill_manual(values = year_colors, drop = FALSE) +
+  labs(
+    x = "Mean molecular property",
+    y = "Site",
+    fill = "Year",
+    title = "Mean molecular properties by site, 2016 and 2025"
+  ) +
+  publication_theme +
+  theme(axis.text.y = element_text(size = 7))
+save_figure(
+  figure_properties,
+  "Figure_Molecular_Properties_2016_2025",
+  width = 12,
+  height = 20
+)
+```
+
+```{r molecular-property-figure, echo=FALSE, fig.width=12, fig.height=20}
+figure_properties
+```
+
+```{r molecular-property-table, echo=FALSE}
+knitr::kable(
+  property_statistics %>%
+    mutate(
+      across(c(mean_2016, mean_2025, mean_change), ~ signif(.x, 4)),
+      p_value = signif(p_value, 3),
+      p_adjusted_BH = signif(p_adjusted_BH, 3)
+    ) %>%
+    select(property, n_pairs, mean_2016, mean_2025, mean_change, test, p_value, p_adjusted_BH),
+  caption = "Paired tests of selected mean molecular properties."
+)
+```
+
+`r sum(property_statistics$p_adjusted_BH < 0.05)` of the `r nrow(property_statistics)` selected molecular properties had FDR-adjusted p < 0.05. `r if (any(property_statistics$p_adjusted_BH < 0.05)) paste0("The strongest FDR-supported shifts were observed for ", paste(head(property_statistics$property[property_statistics$p_adjusted_BH < 0.05], 3), collapse = ", "), ".") else paste0("No selected property retained statistical support after FDR correction; the smallest adjusted p-value was ", format.pval(min(property_statistics$p_adjusted_BH), digits = 3), ".")` The grouped bars show the two years directly for every site.

@@ -1,0 +1,2 @@
+variable,n_pairs,mean_2016,mean_2025,median_2016,median_2025,mean_change,median_change,shapiro_p_difference,selection_reason,test,statistic_name,statistic,p_value,effect_size_name,effect_size
+Molecular richness,44,1911.1136363636363,631.6136363636364,1910.5,623,-1279.5,-1267.5,0.027309204771479138,Paired differences departed from normality (Shapiro-Wilk p <= 0.05),Paired Wilcoxon signed-rank test,V,4,1.0390424067090103e-8,rank_biserial,-0.9919191919191919
