@@ -477,6 +477,26 @@ for(file in file.list){
 
   if(&quot;Molecular_Formula&quot; %in% names(temp))
     names(temp)[names(temp) == &quot;Molecular_Formula&quot;] = &quot;Molecular Formula&quot;
+
+  # Normalize elemental absence codes in the project copy only
+  element_columns = c(&quot;C&quot;, &quot;H&quot;, &quot;O&quot;, &quot;N&quot;, &quot;S&quot;, &quot;P&quot;)
+  missing_required_elements = setdiff(c(&quot;C&quot;, &quot;H&quot;, &quot;O&quot;), names(temp))
+  if(length(missing_required_elements) &gt; 0)
+    stop(&quot;Missing required elemental columns in &quot;, file, &quot;: &quot;,
+         paste(missing_required_elements, collapse = &quot;, &quot;))
+  missing_optional_elements = setdiff(c(&quot;N&quot;, &quot;S&quot;, &quot;P&quot;), names(temp))
+  if(length(missing_optional_elements) &gt; 0)
+    temp[missing_optional_elements] = 0
+  temp = temp %&gt;%
+    mutate(across(
+      all_of(element_columns),
+      ~ ifelse(is.na(.x) | .x == -9999, 0, as.numeric(.x))
+    ))
+  element_values = unlist(temp[element_columns], use.names = FALSE)
+  if(any(is.na(element_values)))
+    stop(&quot;Elemental counts could not be converted to numeric values in &quot;, file)
+  if(any(element_values &lt; 0 | element_values != round(element_values)))
+    stop(&quot;Elemental counts must be non-negative whole numbers in &quot;, file)
   
   # fix molecular formulas
   temp$`Molecular Formula` = gsub(&quot; &quot;, &quot;&quot;, temp$`Molecular Formula`)
@@ -1071,6 +1091,17 @@ if(!identical(data$`Calibrated m/z`, mol$`Calibrated m/z`)){
 # ######################### #
 
 # convert to ftmsRanalysis object
+
+# Confirm valid atom counts immediately before ftmsRanalysis
+element_columns = c(&quot;C&quot;, &quot;H&quot;, &quot;O&quot;, &quot;N&quot;, &quot;S&quot;, &quot;P&quot;)
+element_values = unlist(mol[element_columns], use.names = FALSE)
+if(any(is.na(element_values)))
+  stop(&quot;Missing elemental counts remain before ftmsRanalysis.&quot;)
+if(any(element_values &lt; 0 | element_values != round(element_values)))
+  stop(&quot;Invalid elemental counts remain before ftmsRanalysis.&quot;)
+if(any(mol$C &lt;= 0))
+  stop(&quot;Carbon counts must be positive before ftmsRanalysis.&quot;)
+
 peak_icr = as.peakData(e_data = as.data.frame(data), f_data = factor, e_meta = as.data.frame(mol), 
                        edata_cname = &quot;Calibrated m/z&quot;, mass_cname = &quot;Calibrated m/z&quot;, fdata_cname = &quot;Sample_ID&quot;, 
                        element_col_names = list(

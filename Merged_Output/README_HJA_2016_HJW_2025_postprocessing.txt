@@ -12,10 +12,10 @@ The .corems suffix was removed before sample grouping or renaming.
 
 DATA/MOL QA
 -----------
-Processed Data rows: 21622
-Processed Mol rows: 21622
+Processed Data rows: 45676
+Processed Mol rows: 45676
 Calibrated m/z alignment between Data and Mol: PASS
-Number of Molecular Formula versus MolForm differences after whitespace normalization: 21622.
+Number of Molecular Formula versus MolForm differences after whitespace normalization: 27762.
 
 HJA 2016
 --------
@@ -30,7 +30,7 @@ Blank filtering was applied only to HJW 2025 technical replicate columns.
 Blanks used: HJW_Blk-1_p05, HJW_Blk-2_p05
 A peak was considered blank-associated only when detected in BOTH blanks.
 Blank-associated peaks were set to zero in all HJW 2025 technical replicates before replicate merging.
-Number of blank-associated rows: 285
+Number of blank-associated rows: 416
 
 HJW 2025 TECHNICAL REPLICATE MERGING
 ------------------------------------
@@ -47,6 +47,6 @@ FINAL DATASET
 HJA 2016 samples: 60
 HJW 2025 samples: 47
 Total final samples: 107
-Molecular rows: 21622
+Molecular rows: 45676
 No molecular rows were removed during blank filtering or technical replicate merging.
 
