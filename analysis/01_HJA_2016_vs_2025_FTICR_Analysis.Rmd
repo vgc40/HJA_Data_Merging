@@ -1,6 +1,5 @@
 ---
 title: "HJA FTICR-MS 2016 vs 2025"
-author: "Reproducible paired-site analysis"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
   html_document:
@@ -402,7 +401,7 @@ knitr::kable(pairing_summary, caption = "Paired-site accounting")
 
 # 1. Molecular richness
 
-Molecular richness is the number of molecular features detected in a sample. Richness was calculated from the binary matrix, and each site's change is 2025 richness minus 2016 richness.
+Molecular richness is the number of molecular formulas detected in a sample. 
 
 ```{r richness-analysis}
 paired_sample_names <- c(site_pairing$sample_2016, site_pairing$sample_2025)
@@ -464,7 +463,7 @@ save_figure(figure_richness, "Figure_Richness_2016_2025", width = 10, height = 1
 figure_richness
 ```
 
-The `r richness_test$test` was selected because `r tolower(richness_test$selection_reason)`. Across `r richness_test$n_pairs` paired sites, mean richness was `r round(richness_test$mean_2016, 1)` in 2016 and `r round(richness_test$mean_2025, 1)` in 2025; medians were `r round(richness_test$median_2016, 1)` and `r round(richness_test$median_2025, 1)`. The mean paired change was `r round(richness_test$mean_change, 1)` formulas and the median change was `r round(richness_test$median_change, 1)`. The test statistic was `r round(richness_test$statistic, 3)` (`r richness_test$statistic_name`), with p = `r format.pval(richness_test$p_value, digits = 3)`, and the `r richness_test$effect_size_name` effect size was `r round(richness_test$effect_size, 3)`.
+Across `r richness_test$n_pairs` paired sites, mean richness was `r round(richness_test$mean_2016, 1)` in 2016 and `r round(richness_test$mean_2025, 1)` in 2025; medians were `r round(richness_test$median_2016, 1)` and `r round(richness_test$median_2025, 1)`. The mean paired change was `r round(richness_test$mean_change, 1)` formulas and the median change was `r round(richness_test$median_change, 1)`. The test statistic was `r round(richness_test$statistic, 3)` (`r richness_test$statistic_name`), with p = `r format.pval(richness_test$p_value, digits = 3)`, and the `r richness_test$effect_size_name` effect size was `r round(richness_test$effect_size, 3)`.
 
 # 2. Overall molecular composition
 
@@ -547,7 +546,7 @@ dispersion_table <- tibble(
 write_csv(dispersion_table, "Analysis_Results/HJA_2016_2025_betadisper.csv")
 
 figure_nmds <- ggplot(nmds_scores, aes(x = NMDS1, y = NMDS2)) +
-  geom_path(aes(group = site_pair_id), color = "black", linewidth = 0.3, alpha = 0.35) +
+ # geom_path(aes(group = site_pair_id), color = "black", linewidth = 0.3, alpha = 0.35) +
   geom_point(aes(color = year, shape = year), size = 2.5, alpha = 0.9) +
   scale_color_manual(values = year_colors, drop = FALSE) +
   scale_shape_manual(values = c("2016" = 16, "2025" = 17), drop = FALSE) +
@@ -568,11 +567,11 @@ save_figure(figure_nmds, "Figure_NMDS_Jaccard_2016_2025", width = 8, height = 7)
 figure_nmds
 ```
 
-The two-dimensional NMDS converged with stress = `r round(nmds_result$stress, 3)`. The block-aware PERMANOVA used `r format(permutation_count, big.mark = ",")` requested permutations, allowing year labels to swap only within sites. Year explained `r round(100 * permanova_table$R2, 2)`% of Jaccard variation (pseudo-F = `r round(permanova_table$pseudo_F, 3)`, p = `r format.pval(permanova_table$p_value, digits = 3)`). The dispersion test gave F = `r round(dispersion_table$F, 3)` and permutation p = `r format.pval(dispersion_table$p_value_permutation, digits = 3)`. `r if (dispersion_table$p_value_permutation < 0.05) "Because dispersion differs significantly by year, the PERMANOVA result may reflect both a shift in composition and a change in among-site variability and should be interpreted cautiously." else "There was no statistically detectable difference in multivariate dispersion, so dispersion does not provide evidence of a major confounding difference in among-site variability."`
+The two-dimensional NMDS converged with stress = `r round(nmds_result$stress, 3)`. Year explained `r round(100 * permanova_table$R2, 2)`% of Jaccard variation (PERMANOVA, pseudo-F = `r round(permanova_table$pseudo_F, 3)`, p = `r format.pval(permanova_table$p_value, digits = 3)`). The dispersion test gave F = `r round(dispersion_table$F, 3)` and permutation p = `r format.pval(dispersion_table$p_value_permutation, digits = 3)`. `r if (dispersion_table$p_value_permutation < 0.05) "Because dispersion differs significantly by year, the PERMANOVA result may reflect both a shift in composition and a change in among-site variability and should be interpreted cautiously." else "There was no statistically detectable difference in multivariate dispersion, so dispersion does not provide evidence of a major confounding difference in among-site variability."`
 
 # 3. Compound-class composition
 
-For each sample, each class count was divided by the total number of classified detected formulas. The plot therefore shows the **percent of detected molecular formulas** assigned to each compound class, not feature intensity. Sites have one stable order across all facets.
+For each sample, each class count was divided by the total number of classified detected formulas. The plot therefore shows the **percent of detected molecular formulas** assigned to each compound class.
 
 ```{r compound-analysis}
 compound_summary <- read.csv(compound_file, check.names = FALSE)
@@ -786,7 +785,6 @@ knitr::kable(
 
 # 5. Molecular properties
 
-The elemental absence codes were corrected in the staged CoreMS files before the ESS-DIVE merge and molecular-property calculations. The final Mol file and sample-level property summary are checked here for missing, nonfinite, or implausible values before analysis. Each plotted value is the mean property across the molecular formulas detected in that sample.
 
 ```{r molecular-property-analysis}
 property_summary <- read.csv(property_file, check.names = FALSE)
