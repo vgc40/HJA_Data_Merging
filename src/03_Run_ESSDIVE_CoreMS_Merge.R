@@ -329,7 +329,29 @@ rename_block <- c(
   "",
   
   '  if("Molecular_Formula" %in% names(temp))',
-  '    names(temp)[names(temp) == "Molecular_Formula"] = "Molecular Formula"'
+  '    names(temp)[names(temp) == "Molecular_Formula"] = "Molecular Formula"',
+
+  "",
+
+  "  # Normalize elemental absence codes in the project copy only",
+  '  element_columns = c("C", "H", "O", "N", "S", "P")',
+  '  missing_required_elements = setdiff(c("C", "H", "O"), names(temp))',
+  '  if(length(missing_required_elements) > 0)',
+  '    stop("Missing required elemental columns in ", file, ": ",',
+  '         paste(missing_required_elements, collapse = ", "))',
+  '  missing_optional_elements = setdiff(c("N", "S", "P"), names(temp))',
+  '  if(length(missing_optional_elements) > 0)',
+  '    temp[missing_optional_elements] = 0',
+  '  temp = temp %>%',
+  '    mutate(across(',
+  '      all_of(element_columns),',
+  '      ~ ifelse(is.na(.x) | .x == -9999, 0, as.numeric(.x))',
+  '    ))',
+  '  element_values = unlist(temp[element_columns], use.names = FALSE)',
+  '  if(any(is.na(element_values)))',
+  '    stop("Elemental counts could not be converted to numeric values in ", file)',
+  '  if(any(element_values < 0 | element_values != round(element_values)))',
+  '    stop("Elemental counts must be non-negative whole numbers in ", file)'
 )
 
 
@@ -410,6 +432,40 @@ rmd <- append(
   rmd,
   new_element_block,
   after = element_position - 1
+)
+
+
+# ------------------------------------------------------------
+# Add a final elemental-count check before ftmsRanalysis
+# ------------------------------------------------------------
+
+aspeak_position <- grep(
+  "peak_icr = as\\.peakData",
+  rmd
+)
+
+if (length(aspeak_position) != 1) {
+  stop("Could not uniquely identify the as.peakData() call.")
+}
+
+pre_ftms_qc_block <- c(
+  "",
+  "# Confirm valid atom counts immediately before ftmsRanalysis",
+  'element_columns = c("C", "H", "O", "N", "S", "P")',
+  'element_values = unlist(mol[element_columns], use.names = FALSE)',
+  'if(any(is.na(element_values)))',
+  '  stop("Missing elemental counts remain before ftmsRanalysis.")',
+  'if(any(element_values < 0 | element_values != round(element_values)))',
+  '  stop("Invalid elemental counts remain before ftmsRanalysis.")',
+  'if(any(mol$C <= 0))',
+  '  stop("Carbon counts must be positive before ftmsRanalysis.")',
+  ""
+)
+
+rmd <- append(
+  rmd,
+  pre_ftms_qc_block,
+  after = aspeak_position - 1
 )
 
 
@@ -603,4 +659,25 @@ if (file.exists(expected_mol)) {
   warning(
     "Expected processed Mol file was not found."
   )
+}
+
+
+element_normalization_present <- any(
+  grepl(
+    "Normalize elemental absence codes in the project copy only",
+    patched_rmd,
+    fixed = TRUE
+  )
+)
+
+pre_ftms_qc_present <- any(
+  grepl(
+    "Confirm valid atom counts immediately before ftmsRanalysis",
+    patched_rmd,
+    fixed = TRUE
+  )
+)
+
+if (!element_normalization_present || !pre_ftms_qc_present) {
+  stop("Elemental normalization or pre-ftmsRanalysis QC was not added.")
 }
